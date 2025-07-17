@@ -34,8 +34,16 @@ config.COIN = {
     VALUE = 200
 }
 
--- Level settings
-config.LEVEL_WIDTH = 2000
+-- Level settings (will be set dynamically by level manager)
+config.LEVEL_WIDTH = 1200
+config.GOAL_X = 1000
+
+-- Scoring
+config.SCORES = {
+    ENEMY_DEFEAT = 100,
+    COIN_COLLECT = 200,
+    LEVEL_COMPLETE = 1000
+}
 
 -- Colors
 config.COLORS = {
@@ -47,7 +55,9 @@ config.COLORS = {
     ENEMY_BROWN = {0.6, 0.3, 0},
     COIN_YELLOW = {1, 1, 0},
     WHITE = {1, 1, 1},
-    BLACK = {0, 0, 0}
+    BLACK = {0, 0, 0},
+    GREEN = {0, 1, 0},
+    YELLOW = {1, 1, 0}
 }
 
 return config 

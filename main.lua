@@ -4,6 +4,7 @@ local camera = require("camera")
 local player = require("player")
 local enemy = require("enemy")
 local coin = require("coin")
+local level = require("level")
 
 function love.load()
     -- Set the window title and size
@@ -16,38 +17,16 @@ function love.load()
     -- Initialize Mario
     mario = player.new(100, config.GROUND_Y - config.PLAYER.HEIGHT)
     
+    -- Initialize level manager
+    levelManager = level.new()
+    
     -- Game state
     score = 0
     gameTime = 0
+    lives = 3
     
-    -- Create platforms
-    platforms = {
-        {x = 300, y = 400, width = 128, height = 16},
-        {x = 500, y = 350, width = 96, height = 16},
-        {x = 700, y = 300, width = 128, height = 16},
-        {x = 900, y = 250, width = 96, height = 16},
-        {x = 1200, y = 400, width = 160, height = 16},
-        {x = 1450, y = 350, width = 96, height = 16}
-    }
-    
-    -- Create enemies
-    enemies = {
-        enemy.new(400, config.GROUND_Y - config.ENEMY.HEIGHT, -50),
-        enemy.new(600, config.GROUND_Y - config.ENEMY.HEIGHT, -30),
-        enemy.new(800, config.GROUND_Y - config.ENEMY.HEIGHT, -40),
-        enemy.new(1100, config.GROUND_Y - config.ENEMY.HEIGHT, -35),
-        enemy.new(1300, config.GROUND_Y - config.ENEMY.HEIGHT, -45)
-    }
-    
-    -- Create coins
-    coins = {
-        coin.new(350, 350),
-        coin.new(550, 300),
-        coin.new(750, 250),
-        coin.new(950, 200),
-        coin.new(1250, 350),
-        coin.new(1500, 300)
-    }
+    -- Load first level
+    currentLevelName = level.loadLevel(levelManager, 1)
 end
 
 function love.update(dt)
@@ -58,25 +37,28 @@ function love.update(dt)
     gameTime = gameTime + dt
     
     -- Update Mario
-    player.update(mario, dt, platforms)
+    player.update(mario, dt, levelManager.platforms)
     
     -- Update enemies
-    for _, goomba in ipairs(enemies) do
-        enemy.update(goomba, dt, platforms)
+    for _, goomba in ipairs(levelManager.enemies) do
+        enemy.update(goomba, dt, levelManager.platforms)
         
-        -- Check enemy collision with Mario (now passing dt)
+        -- Check enemy collision with Mario
         local collided, defeated = enemy.checkPlayerCollision(goomba, mario, dt)
         if collided and defeated then
-            score = score + 100
+            score = score + config.SCORES.ENEMY_DEFEAT
         end
     end
     
     -- Check coin collection
-    for _, coinObj in ipairs(coins) do
+    for _, coinObj in ipairs(levelManager.coins) do
         if coin.checkCollection(coinObj, mario) then
-            score = score + config.COIN.VALUE
+            score = score + config.SCORES.COIN_COLLECT
         end
     end
+    
+    -- Update level (check for completion)
+    level.update(levelManager, mario, dt)
     
     -- Update camera
     camera.update(gameCamera, mario, config.LEVEL_WIDTH, config.WINDOW_WIDTH)
@@ -96,19 +78,22 @@ function love.draw()
     
     -- Draw platforms
     love.graphics.setColor(config.COLORS.PLATFORM)
-    for _, platform in ipairs(platforms) do
+    for _, platform in ipairs(levelManager.platforms) do
         love.graphics.rectangle("fill", platform.x, platform.y, platform.width, platform.height)
     end
     
     -- Draw coins
-    for _, coinObj in ipairs(coins) do
+    for _, coinObj in ipairs(levelManager.coins) do
         coin.draw(coinObj)
     end
     
     -- Draw enemies
-    for _, goomba in ipairs(enemies) do
+    for _, goomba in ipairs(levelManager.enemies) do
         enemy.draw(goomba)
     end
+    
+    -- Draw goal flag
+    level.drawGoal(levelManager)
     
     -- Draw Mario
     player.draw(mario)
@@ -120,6 +105,8 @@ function love.draw()
     love.graphics.setColor(config.COLORS.WHITE)
     love.graphics.print("Score: " .. score, 10, 10)
     love.graphics.print("Time: " .. math.floor(gameTime), 10, 30)
+    love.graphics.print("Level: " .. level.getCurrentLevelName(levelManager), 10, 50)
+    love.graphics.print("Lives: " .. lives, 10, 70)
     
     -- Draw FPS in upper right corner
     local fps = love.timer.getFPS()
@@ -130,22 +117,49 @@ function love.draw()
     if not mario.alive then
         love.graphics.setColor(config.COLORS.MARIO_RED)
         love.graphics.print("GAME OVER! Press R to restart", love.graphics.getWidth()/2 - 100, love.graphics.getHeight()/2)
+        love.graphics.print("Lives remaining: " .. (lives - 1), love.graphics.getWidth()/2 - 50, love.graphics.getHeight()/2 + 20)
     end
+    
+    -- Draw level complete screen
+    level.drawLevelComplete(levelManager)
     
     -- Instructions
     love.graphics.setColor(config.COLORS.WHITE)
-    love.graphics.print("Controls: A/D or Arrow Keys to move, Space/W/Up to jump", 10, love.graphics.getHeight() - 40)
-    love.graphics.print("Jump on enemies to defeat them! Collect coins for points!", 10, love.graphics.getHeight() - 20)
-    love.graphics.print("Press R to restart game at any time", 10, love.graphics.getHeight() - 60)
+    love.graphics.print("Controls: A/D or Arrow Keys to move, Space/W/Up to jump", 10, love.graphics.getHeight() - 60)
+    love.graphics.print("Jump on enemies to defeat them! Collect coins for points!", 10, love.graphics.getHeight() - 40)
+    love.graphics.print("Reach the flag to complete the level!", 10, love.graphics.getHeight() - 20)
 end
 
 function love.keypressed(key)
     if key == "r" or key == "R" then
-        -- Restart game (works anytime, not just when dead)
-        love.load()
+        if not mario.alive then
+            -- Lose a life and restart current level
+            lives = lives - 1
+            if lives > 0 then
+                mario.alive = true
+                currentLevelName = level.loadLevel(levelManager, levelManager.currentLevel)
+                mario.x = 100
+                mario.y = config.GROUND_Y - mario.height
+                mario.velX = 0
+                mario.velY = 0
+                mario.onGround = false
+            else
+                -- Game over - restart from level 1
+                love.load()
+            end
+        else
+            -- Restart entire game
+            love.load()
+        end
     end
     
     if key == "escape" then
         love.event.quit()
+    end
+    
+    -- Debug: Skip to next level (remove in final version)
+    if key == "n" and mario.alive then
+        level.nextLevel(levelManager, mario)
+        score = score + config.SCORES.LEVEL_COMPLETE
     end
 end
