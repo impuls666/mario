@@ -9,6 +9,12 @@ config.WINDOW_TITLE = "Princess Adventure 2D"
 -- Camera/Zoom settings
 config.ZOOM_FACTOR = 2.0  -- 2.0 = 200% zoom (everything appears twice as big)
 
+-- Audio settings
+config.AUDIO = {
+    MUSIC_VOLUME = 0.7,
+    MUSIC_ENABLED = true
+}
+
 -- Physics constants
 config.GRAVITY = 1500
 config.GROUND_Y = 500

@@ -19,6 +19,9 @@ local currentLevelName
 local gameInitialized = false
 local isMobile = false
 
+-- Audio variables
+local backgroundMusic
+
 function love.load()
     -- Detect mobile platform
     isMobile = mobile.init()
@@ -30,6 +33,18 @@ function love.load()
     else
         love.window.setTitle(config.WINDOW_TITLE)
         love.window.setMode(config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
+    end
+    
+    -- Load and play background music
+    print("Loading background music...")
+    backgroundMusic = love.audio.newSource("music/i am running out of time.mp3", "stream")
+    backgroundMusic:setLooping(true)  -- Loop the music continuously
+    backgroundMusic:setVolume(config.AUDIO.MUSIC_VOLUME)
+    if config.AUDIO.MUSIC_ENABLED then
+        backgroundMusic:play()
+        print("Background music started")
+    else
+        print("Background music loaded but disabled")
     end
     
     -- Load sprites
@@ -57,6 +72,7 @@ function showMainMenu()
         love.graphics.print("Press SPACE to start game", screenWidth/2 - 100, 300)
     end
     love.graphics.print("Press ESCAPE to exit", screenWidth/2 - 80, 330)
+    love.graphics.print("Press M to toggle music", screenWidth/2 - 85, 350)
     
     -- Show platform info
     love.graphics.setColor(0.8, 0.8, 0.8)
@@ -183,9 +199,10 @@ function love.draw()
     love.graphics.print("Time: " .. math.floor(gameTime), 10, 30)
     love.graphics.print("Level: " .. level.getCurrentLevelName(levelManager), 10, 50)
     love.graphics.print("Lives: " .. lives, 10, 70)
+    love.graphics.print("Music: " .. (backgroundMusic:isPlaying() and "ON" or "OFF") .. " (M)", 10, 90)
     if not isMobile then
-        love.graphics.print("Zoom: " .. string.format("%.1f", gameCamera.zoom) .. "x", 10, 90)
-        love.graphics.print("Camera Y: " .. string.format("%.0f", gameCamera.y) .. " (range: " .. gameCamera.minY .. "-" .. gameCamera.maxY .. ")", 10, 110)
+        love.graphics.print("Zoom: " .. string.format("%.1f", gameCamera.zoom) .. "x", 10, 110)
+        love.graphics.print("Camera Y: " .. string.format("%.0f", gameCamera.y) .. " (range: " .. gameCamera.minY .. "-" .. gameCamera.maxY .. ")", 10, 130)
     end
     
     -- Draw FPS in upper right corner
@@ -225,6 +242,19 @@ function love.keypressed(key)
             love.event.quit()
         end
         return
+    end
+    
+    -- Music controls (available everywhere)
+    if key == "m" or key == "M" then
+        if backgroundMusic:isPlaying() then
+            backgroundMusic:pause()
+            config.AUDIO.MUSIC_ENABLED = false
+            print("Music paused")
+        else
+            backgroundMusic:play()
+            config.AUDIO.MUSIC_ENABLED = true
+            print("Music resumed")
+        end
     end
     
     -- Desktop-only controls
