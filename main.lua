@@ -121,6 +121,12 @@ function love.draw()
     love.graphics.print("Score: " .. score, 10, 10)
     love.graphics.print("Time: " .. math.floor(gameTime), 10, 30)
     
+    -- Draw FPS in upper right corner
+    local fps = love.timer.getFPS()
+    local fpsText = "FPS: " .. fps
+    local fpsWidth = love.graphics.getFont():getWidth(fpsText)
+    love.graphics.print(fpsText, love.graphics.getWidth() - fpsWidth - 10, 10)
+    
     if not mario.alive then
         love.graphics.setColor(config.COLORS.MARIO_RED)
         love.graphics.print("GAME OVER! Press R to restart", love.graphics.getWidth()/2 - 100, love.graphics.getHeight()/2)
@@ -130,11 +136,12 @@ function love.draw()
     love.graphics.setColor(config.COLORS.WHITE)
     love.graphics.print("Controls: A/D or Arrow Keys to move, Space/W/Up to jump", 10, love.graphics.getHeight() - 40)
     love.graphics.print("Jump on enemies to defeat them! Collect coins for points!", 10, love.graphics.getHeight() - 20)
+    love.graphics.print("Press R to restart game at any time", 10, love.graphics.getHeight() - 60)
 end
 
 function love.keypressed(key)
-    if key == "r" and not mario.alive then
-        -- Restart game
+    if key == "r" or key == "R" then
+        -- Restart game (works anytime, not just when dead)
         love.load()
     end
     
