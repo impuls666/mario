@@ -1,11 +1,11 @@
--- Level management system
+-- Level management system with larger enemies
 local config = require("config")
 local enemy = require("enemy")
 local coin = require("coin")
 
 local level = {}
 
--- Level definitions
+-- Level definitions (adjusted enemy positions for larger size)
 local levels = {
     -- Level 1: Tutorial
     {
@@ -24,8 +24,8 @@ local levels = {
             {x = 550, y = 300},
             {x = 750, y = 250}
         },
-        goalX = 1000,
-        levelWidth = 1200
+        goalX = 900,
+        levelWidth = 1100
     },
     
     -- Level 2: More platforms
@@ -53,8 +53,8 @@ local levels = {
             {x = 950, y = 200},
             {x = 1200, y = 300}
         },
-        goalX = 1400,
-        levelWidth = 1600
+        goalX = 1350,
+        levelWidth = 1500
     },
     
     -- Level 3: Challenging jumps
@@ -66,8 +66,7 @@ local levels = {
             {x = 600, y = 380, width = 64, height = 16},
             {x = 800, y = 280, width = 96, height = 16},
             {x = 1000, y = 350, width = 64, height = 16},
-            {x = 1200, y = 250, width = 128, height = 16},
-            {x = 1450, y = 400, width = 96, height = 16}
+            {x = 1200, y = 250, width = 128, height = 16}
         },
         enemies = {
             {x = 350, speed = -50},
@@ -82,11 +81,10 @@ local levels = {
             {x = 650, y = 330},
             {x = 850, y = 230},
             {x = 1050, y = 300},
-            {x = 1250, y = 200},
-            {x = 1500, y = 350}
+            {x = 1250, y = 200}
         },
-        goalX = 1700,
-        levelWidth = 1900
+        goalX = 1500,
+        levelWidth = 1700
     },
     
     -- Level 4: Enemy gauntlet
@@ -97,8 +95,7 @@ local levels = {
             {x = 500, y = 400, width = 96, height = 16},
             {x = 700, y = 450, width = 128, height = 16},
             {x = 950, y = 350, width = 160, height = 16},
-            {x = 1200, y = 400, width = 128, height = 16},
-            {x = 1450, y = 300, width = 96, height = 16}
+            {x = 1200, y = 400, width = 128, height = 16}
         },
         enemies = {
             {x = 350, speed = -40},
@@ -107,19 +104,17 @@ local levels = {
             {x = 750, speed = -50},
             {x = 850, speed = -30},
             {x = 1000, speed = -55},
-            {x = 1150, speed = -40},
-            {x = 1300, speed = -45}
+            {x = 1150, speed = -40}
         },
         coins = {
             {x = 350, y = 400},
             {x = 550, y = 350},
             {x = 750, y = 400},
             {x = 1000, y = 300},
-            {x = 1250, y = 350},
-            {x = 1500, y = 250}
+            {x = 1250, y = 350}
         },
-        goalX = 1800,
-        levelWidth = 2000
+        goalX = 1600,
+        levelWidth = 1800
     }
 }
 
@@ -138,7 +133,7 @@ end
 
 function level.loadLevel(levelManager, levelNumber)
     if levelNumber > #levels then
-        levelNumber = #levels -- Cap at max level
+        levelNumber = #levels
     end
     
     local levelData = levels[levelNumber]
@@ -158,12 +153,12 @@ function level.loadLevel(levelManager, levelNumber)
         })
     end
     
-    -- Load enemies
+    -- Load enemies (now with bigger size)
     levelManager.enemies = {}
     for _, enemyData in ipairs(levelData.enemies) do
         table.insert(levelManager.enemies, enemy.new(
             enemyData.x, 
-            config.GROUND_Y - config.ENEMY.HEIGHT, 
+            config.GROUND_Y - config.ENEMY.HEIGHT, -- Now uses larger height
             enemyData.speed
         ))
     end
@@ -215,7 +210,6 @@ function level.nextLevel(levelManager, mario)
     else
         -- Game complete!
         levelManager.showLevelComplete = false
-        -- Could add game complete screen here
     end
 end
 
