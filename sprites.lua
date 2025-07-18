@@ -85,8 +85,21 @@ end
 
 function sprites.stopAnimation(animation)
     animation.isPlaying = false
+    -- Set to neutral frame for more natural stopping
     animation.currentFrame = 1
     animation.timer = 0
+end
+
+-- NEW: Smooth stop animation - starts transitioning to neutral frame
+function sprites.stopAnimationSmooth(animation)
+    if animation.isPlaying then
+        -- If not already on frame 1, quickly transition to it
+        if animation.currentFrame ~= 1 then
+            animation.currentFrame = 1
+            animation.timer = 0
+        end
+        animation.isPlaying = false
+    end
 end
 
 function sprites.getCurrentFrame(animation)

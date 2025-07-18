@@ -7,6 +7,7 @@ local coin = require("coin")
 local level = require("level")
 local sprites = require("sprites")
 local mobile = require("mobile")
+local bullet = require("bullet")
 
 -- Game state variables
 local gameCamera
@@ -18,6 +19,10 @@ local lives
 local currentLevelName
 local gameInitialized = false
 local isMobile = false
+local bullets = {}
+
+-- Simpler approach - add a gameState variable
+local gameState = "menu" -- "menu", "playing", "lostlife", "truegameover"
 
 -- Audio variables
 local backgroundMusic
@@ -109,175 +114,26 @@ function initializeGame()
     gameInitialized = true
 end
 
-function love.update(dt)
-    -- Update mobile controls
-    if isMobile then
-        mobile.update(dt)
-    end
-    
-    if gameInitialized then
-        if not mario.alive then
-            return
-        end
-        
-        gameTime = gameTime + dt
-        
-        -- Update Princess
-        player.updateMobile(mario, dt, levelManager.platforms, isMobile)
-        
-        -- Update enemies
-        for _, goomba in ipairs(levelManager.enemies) do
-            enemy.update(goomba, dt, levelManager.platforms)
-            
-            -- Check enemy collision with Princess
-            local collided, defeated = enemy.checkPlayerCollision(goomba, mario, dt)
-            if collided and defeated then
-                score = score + config.SCORES.ENEMY_DEFEAT
-            end
-        end
-        
-        -- Check coin collection
-        for _, coinObj in ipairs(levelManager.coins) do
-            if coin.checkCollection(coinObj, mario) then
-                score = score + config.SCORES.COIN_COLLECT
-            end
-        end
-        
-        -- Update level (check for completion)
-        level.update(levelManager, mario, dt)
-        
-        -- Update camera (limited vertical following)
-        camera.update(gameCamera, mario, config.LEVEL_WIDTH, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
-    end
-end
-
-function love.draw()
-    if not gameInitialized then
-        showMainMenu()
-        return
-    end
-    
-    -- Apply camera transform (limited vertical following)
-    camera.apply(gameCamera)
-    
-    -- Draw background (sky)
-    love.graphics.setColor(config.COLORS.SKY)
-    love.graphics.rectangle("fill", -200, -200, config.LEVEL_WIDTH + 400, love.graphics.getHeight() + 400)
-    
-    -- Draw ground
-    love.graphics.setColor(config.COLORS.GROUND)
-    love.graphics.rectangle("fill", 0, config.GROUND_Y, config.LEVEL_WIDTH, love.graphics.getHeight() - config.GROUND_Y + 200)
-    
-    -- Draw platforms
-    love.graphics.setColor(config.COLORS.PLATFORM)
-    for _, platform in ipairs(levelManager.platforms) do
-        love.graphics.rectangle("fill", platform.x, platform.y, platform.width, platform.height)
-    end
-    
-    -- Draw coins
-    for _, coinObj in ipairs(levelManager.coins) do
-        coin.draw(coinObj)
-    end
-    
-    -- Draw enemies
-    for _, goomba in ipairs(levelManager.enemies) do
-        enemy.draw(goomba)
-    end
-    
-    -- Draw goal flag
-    level.drawGoal(levelManager)
-    
-    -- Draw Princess
-    player.draw(mario)
-    
-    -- Reset camera transform
-    camera.unapply()
-    
-    -- Draw UI (fixed position)
-    love.graphics.setColor(config.COLORS.WHITE)
-    love.graphics.print("Score: " .. score, 10, 10)
-    love.graphics.print("Time: " .. math.floor(gameTime), 10, 30)
-    love.graphics.print("Level: " .. level.getCurrentLevelName(levelManager), 10, 50)
-    love.graphics.print("Lives: " .. lives, 10, 70)
-    love.graphics.print("Music: " .. (backgroundMusic:isPlaying() and "ON" or "OFF") .. " (M)", 10, 90)
-    if not isMobile then
-        love.graphics.print("Zoom: " .. string.format("%.1f", gameCamera.zoom) .. "x", 10, 110)
-        love.graphics.print("Camera Y: " .. string.format("%.0f", gameCamera.y) .. " (range: " .. gameCamera.minY .. "-" .. gameCamera.maxY .. ")", 10, 130)
-    end
-    
-    -- Draw FPS in upper right corner
-    local fps = love.timer.getFPS()
-    local fpsText = "FPS: " .. fps
-    local fpsWidth = love.graphics.getFont():getWidth(fpsText)
-    love.graphics.print(fpsText, love.graphics.getWidth() - fpsWidth - 10, 10)
-    
-    -- Draw mobile controls
-    if isMobile then
-        mobile.drawControls()
-    end
-    
-    if not mario.alive then
-        love.graphics.setColor(config.COLORS.MARIO_RED)
-        love.graphics.print("GAME OVER! Touch to restart", love.graphics.getWidth()/2 - 100, love.graphics.getHeight()/2)
-        love.graphics.print("Lives remaining: " .. (lives - 1), love.graphics.getWidth()/2 - 50, love.graphics.getHeight()/2 + 20)
-    end
-    
-    -- Draw level complete screen
-    level.drawLevelComplete(levelManager)
-end
-
--- Touch events for mobile
-function love.touchpressed(id, x, y, dx, dy, pressure)
-    if not gameInitialized then
-        initializeGame()
-        return
-    end
-end
-
+-- Update the love.keypressed function to properly handle game over
 function love.keypressed(key)
-    if not gameInitialized then
+    if gameState == "menu" then
         if key == "space" then
             initializeGame()
+            gameState = "playing"
         elseif key == "escape" then
             love.event.quit()
         end
         return
     end
     
-    -- Music controls (available everywhere)
-    if key == "m" or key == "M" then
-        if backgroundMusic:isPlaying() then
-            backgroundMusic:pause()
-            config.AUDIO.MUSIC_ENABLED = false
-            print("Music paused")
+    if gameState == "lostlife" then
+        if key == "escape" then
+            love.event.quit()
         else
-            backgroundMusic:play()
-            config.AUDIO.MUSIC_ENABLED = true
-            print("Music resumed")
-        end
-    end
-    
-    -- Desktop-only controls
-    if not isMobile then
-        -- Zoom controls
-        if key == "=" or key == "+" then
-            gameCamera.zoom = math.min(gameCamera.zoom + 0.25, 4.0)
-        elseif key == "-" or key == "_" then
-            gameCamera.zoom = math.max(gameCamera.zoom - 0.25, 0.5)
-        end
-        
-        -- Camera range adjustment controls
-        if key == "pageup" then
-            camera.adjustRange(gameCamera, -10, -10)
-        elseif key == "pagedown" then
-            camera.adjustRange(gameCamera, 10, 10)
-        end
-    end
-    
-    if key == "r" or key == "R" then
-        if not mario.alive then
+            -- Any other key
             lives = lives - 1
             if lives > 0 then
+                -- Still have lives - restart current level
                 mario.alive = true
                 currentLevelName = level.loadLevel(levelManager, levelManager.currentLevel)
                 mario.x = 100
@@ -285,15 +141,223 @@ function love.keypressed(key)
                 mario.velX = 0
                 mario.velY = 0
                 mario.onGround = false
+                gameState = "playing"
             else
-                gameInitialized = false
+                -- No lives left - true game over
+                gameState = "truegameover"
             end
+        end
+        return
+    end
+    
+    if gameState == "truegameover" then
+        if key == "escape" then
+            love.event.quit()
         else
+            -- Any key to return to menu
+            gameState = "menu"
+            gameInitialized = false
+            -- Reset for new game
+            score = 0
+            gameTime = 0
+            lives = 3
+            bullets = {}
+        end
+        return
+    end
+    
+    if gameState == "playing" then
+        -- All the game controls
+        if key == "x" and player.shoot(mario) then
+            local bulletX = mario.facing == 1 and mario.x + mario.width or mario.x
+            local bulletY = mario.y + mario.height / 2
+            table.insert(bullets, bullet.new(bulletX, bulletY, mario.facing))
+        end
+        
+        if key == "z" and player.stun(mario) then
+            for _, goomba in ipairs(levelManager.enemies) do
+                local distance = math.abs(mario.x - goomba.x)
+                if distance < 50 then
+                    enemy.stun(goomba, 2.0)
+                end
+            end
+        end
+        
+        if key == "r" or key == "R" then
             initializeGame()
+        end
+        
+        if not isMobile then
+            if key == "=" or key == "+" then
+                gameCamera.zoom = math.min(gameCamera.zoom + 0.25, 4.0)
+            elseif key == "-" or key == "_" then
+                gameCamera.zoom = math.max(gameCamera.zoom - 0.25, 0.5)
+            elseif key == "pageup" then
+                camera.adjustRange(gameCamera, -10, -10)
+            elseif key == "pagedown" then
+                camera.adjustRange(gameCamera, 10, 10)
+            end
         end
     end
     
     if key == "escape" then
         love.event.quit()
+    end
+end
+
+-- Update the game update to handle state changes
+function love.update(dt)
+    if isMobile then
+        mobile.update(dt)
+    end
+    
+    if gameState ~= "playing" or not gameInitialized then
+        return
+    end
+    
+    -- Check for death and change state
+    if not mario.alive then
+        gameState = "lostlife"  -- Changed from "gameover"
+        return
+    end
+    
+    -- Normal game update
+    gameTime = gameTime + dt
+    player.updateMobile(mario, dt, levelManager.platforms, isMobile)
+    
+    -- Update bullets
+    for i = #bullets, 1, -1 do
+        bullet.update(bullets[i], dt)
+        if not bullets[i].alive then
+            table.remove(bullets, i)
+        end
+    end
+    
+    -- Check bullet-enemy collisions
+    for _, bulletObj in ipairs(bullets) do
+        for _, goomba in ipairs(levelManager.enemies) do
+            if bullet.checkEnemyCollision(bulletObj, goomba) then
+                score = score + 50
+            end
+        end
+    end
+    
+    -- Update enemies
+    for _, goomba in ipairs(levelManager.enemies) do
+        enemy.update(goomba, dt, levelManager.platforms)
+        local collided, defeated = enemy.checkPlayerCollision(goomba, mario, dt)
+        if collided and defeated then
+            score = score + config.SCORES.ENEMY_DEFEAT
+        end
+    end
+    
+    -- Check coin collection
+    for _, coinObj in ipairs(levelManager.coins) do
+        if coin.checkCollection(coinObj, mario) then
+            score = score + config.SCORES.COIN_COLLECT
+        end
+    end
+    
+    -- Update level (this handles level completion!)
+    level.update(levelManager, mario, dt)
+    
+    -- Update camera
+    camera.update(gameCamera, mario, config.LEVEL_WIDTH, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
+end
+
+-- Simpler draw function
+function love.draw()
+    if gameState == "menu" then
+        showMainMenu()
+    elseif gameState == "playing" or gameState == "lostlife" or gameState == "truegameover" then
+        -- Draw game
+        camera.apply(gameCamera)
+        
+        love.graphics.setColor(config.COLORS.SKY)
+        love.graphics.rectangle("fill", -200, -200, config.LEVEL_WIDTH + 400, love.graphics.getHeight() + 400)
+        
+        love.graphics.setColor(config.COLORS.GROUND)
+        love.graphics.rectangle("fill", 0, config.GROUND_Y, config.LEVEL_WIDTH, love.graphics.getHeight() - config.GROUND_Y + 200)
+        
+        love.graphics.setColor(config.COLORS.PLATFORM)
+        for _, platform in ipairs(levelManager.platforms) do
+            love.graphics.rectangle("fill", platform.x, platform.y, platform.width, platform.height)
+        end
+        
+        for _, coinObj in ipairs(levelManager.coins) do
+            coin.draw(coinObj)
+        end
+        
+        for _, goomba in ipairs(levelManager.enemies) do
+            enemy.draw(goomba)
+        end
+        
+        level.drawGoal(levelManager)
+        
+        for _, bulletObj in ipairs(bullets) do
+            bullet.draw(bulletObj)
+        end
+        
+        player.draw(mario)
+        camera.unapply()
+        
+        -- UI
+        love.graphics.setColor(config.COLORS.WHITE)
+        love.graphics.print("Score: " .. score, 10, 10)
+        love.graphics.print("Time: " .. math.floor(gameTime), 10, 30)
+        love.graphics.print("Level: " .. level.getCurrentLevelName(levelManager), 10, 50)
+        love.graphics.print("Lives: " .. lives, 10, 70)
+        
+        local fps = love.timer.getFPS()
+        local fpsText = "FPS: " .. fps
+        local fpsWidth = love.graphics.getFont():getWidth(fpsText)
+        love.graphics.print(fpsText, love.graphics.getWidth() - fpsWidth - 10, 10)
+        
+        if isMobile then
+            mobile.drawControls()
+        end
+        
+        -- Lost life screen
+        if gameState == "lostlife" then
+            love.graphics.setColor(config.COLORS.MARIO_RED)
+            if isMobile then
+                love.graphics.print("OUCH! Touch to continue", love.graphics.getWidth()/2 - 80, love.graphics.getHeight()/2)
+            else
+                love.graphics.print("OUCH! Press any key to continue", love.graphics.getWidth()/2 - 100, love.graphics.getHeight()/2)
+            end
+            love.graphics.print("Lives remaining: " .. (lives - 1), love.graphics.getWidth()/2 - 50, love.graphics.getHeight()/2 + 20)
+        end
+        
+        -- True game over screen
+        if gameState == "truegameover" then
+            love.graphics.setColor(1, 0, 0, 0.8)
+            love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+            
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print("GAME OVER!", love.graphics.getWidth()/2 - 50, love.graphics.getHeight()/2 - 40)
+            love.graphics.print("Final Score: " .. score, love.graphics.getWidth()/2 - 50, love.graphics.getHeight()/2 - 10)
+            if isMobile then
+                love.graphics.print("Touch to return to menu", love.graphics.getWidth()/2 - 80, love.graphics.getHeight()/2 + 20)
+            else
+                love.graphics.print("Press any key to return to menu", love.graphics.getWidth()/2 - 100, love.graphics.getHeight()/2 + 20)
+            end
+        end
+        
+        -- Level complete screen
+        if levelManager and levelManager.showLevelComplete then
+            level.drawLevelComplete(levelManager)
+        end
+        
+        -- Instructions (only during playing)
+        if gameState == "playing" and mario.alive then
+            love.graphics.setColor(config.COLORS.WHITE)
+            if isMobile then
+                love.graphics.print("Touch controls: Move, Jump, Shoot (X), Stun (Z)", 10, love.graphics.getHeight() - 40)
+            else
+                love.graphics.print("Controls: A/D move, Space jump, X shoot, Z stun", 10, love.graphics.getHeight() - 80)
+                love.graphics.print("R to restart, +/- zoom, Page Up/Down camera", 10, love.graphics.getHeight() - 60)
+            end
+            love.graphics.print("Reach the flag to complete the level!", 10, love.graphics.getHeight() - 20)
+        end
     end
 end

@@ -1,4 +1,4 @@
--- Princess player logic with mobile support
+-- Princess with shooting and stun abilities
 local config = require("config")
 local collision = require("collision")
 local sprites = require("sprites")
@@ -8,36 +8,34 @@ local player = {}
 
 function player.new(x, y)
     return {
-        x = x,
-        y = y,
-        width = config.PLAYER.WIDTH,
-        height = config.PLAYER.HEIGHT,
-        velX = 0,
-        velY = 0,
-        speed = config.PLAYER.SPEED,
-        jumpPower = config.PLAYER.JUMP_POWER,
-        onGround = false,
-        facing = 1, -- 1 for right, -1 for left
-        alive = true,
-        -- Animation state
+        x = x, y = y, width = config.PLAYER.WIDTH, height = config.PLAYER.HEIGHT,
+        velX = 0, velY = 0, speed = config.PLAYER.SPEED, jumpPower = config.PLAYER.JUMP_POWER,
+        onGround = false, facing = 1, alive = true,
+        -- Animation
         isMoving = false,
         leftAnimation = sprites.createAnimation("princess", "moveRight", 4, 0.15),
         rightAnimation = sprites.createAnimation("princess", "moveLeft", 4, 0.15),
         currentAnimation = nil,
+        stopDelay = 0, -- Small delay for more natural stopping
         -- Sprite scaling
-        spriteScaleX = 24 / 99,
-        spriteScaleY = 32 / 239,
-        spriteOffsetX = 0,
-        spriteOffsetY = 0
+        spriteScaleX = 24 / 99, spriteScaleY = 32 / 239, spriteOffsetX = 0, spriteOffsetY = 0,
+        -- Combat abilities
+        shootCooldown = 0,
+        stunCooldown = 0
     }
 end
 
 function player.updateMobile(mario, dt, platforms, isMobile)
-    if not mario.alive then
-        return
-    end
+    if not mario.alive then return end
     
-    -- Input handling (keyboard or mobile)
+    -- Update cooldowns
+    mario.shootCooldown = math.max(0, mario.shootCooldown - dt)
+    mario.stunCooldown = math.max(0, mario.stunCooldown - dt)
+    
+    -- Update stop delay for smoother animation
+    mario.stopDelay = math.max(0, mario.stopDelay - dt)
+    
+    -- Movement input
     local wasMoving = mario.isMoving
     mario.velX = 0
     mario.isMoving = false
@@ -58,16 +56,21 @@ function player.updateMobile(mario, dt, platforms, isMobile)
         mario.currentAnimation = mario.rightAnimation
     end
     
-    -- Handle animation state changes
+    -- Animation handling with anticipatory stopping
     if mario.isMoving and not wasMoving then
+        -- Started moving
         sprites.startAnimation(mario.currentAnimation)
+        mario.stopDelay = 0
     elseif not mario.isMoving and wasMoving then
-        if mario.currentAnimation then
-            sprites.stopAnimation(mario.currentAnimation)
-        end
+        -- Stopped moving - add small delay for more natural transition
+        mario.stopDelay = 0.08 -- 80ms delay before stopping animation
     end
     
-    -- Update current animation
+    -- Handle delayed animation stopping
+    if not mario.isMoving and mario.stopDelay <= 0 and mario.currentAnimation and mario.currentAnimation.isPlaying then
+        sprites.stopAnimationSmooth(mario.currentAnimation)
+    end
+    
     if mario.currentAnimation then
         sprites.updateAnimation(mario.currentAnimation, dt)
     end
@@ -78,13 +81,12 @@ function player.updateMobile(mario, dt, platforms, isMobile)
         mario.onGround = false
     end
     
-    -- Rest of update logic remains the same...
+    -- Physics (same as before)
     mario.velY = mario.velY + config.GRAVITY * dt
     mario.x = mario.x + mario.velX * dt
     mario.y = mario.y + mario.velY * dt
     
     mario.onGround = false
-    
     if mario.y + mario.height >= config.GROUND_Y then
         mario.y = config.GROUND_Y - mario.height
         mario.velY = 0
@@ -110,7 +112,30 @@ function player.updateMobile(mario, dt, platforms, isMobile)
     end
 end
 
--- Keep original update function for backwards compatibility
+function player.canShoot(mario)
+    return mario.shootCooldown <= 0
+end
+
+function player.shoot(mario)
+    if player.canShoot(mario) then
+        mario.shootCooldown = 0.3 -- 0.3 second cooldown
+        return true
+    end
+    return false
+end
+
+function player.canStun(mario)
+    return mario.stunCooldown <= 0
+end
+
+function player.stun(mario)
+    if player.canStun(mario) then
+        mario.stunCooldown = 3.0 -- 3 second cooldown
+        return true
+    end
+    return false
+end
+
 function player.update(mario, dt, platforms)
     player.updateMobile(mario, dt, platforms, false)
 end
@@ -128,27 +153,17 @@ function player.draw(mario)
         end
         
         if sprite then
-            drewSprite = sprites.drawSprite(
-                sprite, 
-                mario.x, 
-                mario.y, 
-                mario.spriteScaleX, 
-                mario.spriteScaleY, 
-                mario.spriteOffsetX, 
-                mario.spriteOffsetY
-            )
+            drewSprite = sprites.drawSprite(sprite, mario.x, mario.y, mario.spriteScaleX, mario.spriteScaleY, mario.spriteOffsetX, mario.spriteOffsetY)
         end
         
         if not drewSprite then
+            -- Fallback drawing (same as before)
             love.graphics.setColor(1, 0.75, 0.8)
             love.graphics.rectangle("fill", mario.x, mario.y, mario.width, mario.height)
-            
             love.graphics.setColor(1, 0.9, 0.8)
             love.graphics.rectangle("fill", mario.x + 4, mario.y + 4, mario.width - 8, 12)
-            
             love.graphics.setColor(1, 1, 0)
             love.graphics.rectangle("fill", mario.x + 2, mario.y, mario.width - 4, 8)
-            
             love.graphics.setColor(0, 0, 0)
             if mario.facing == 1 then
                 love.graphics.circle("fill", mario.x + 14, mario.y + 8, 1)

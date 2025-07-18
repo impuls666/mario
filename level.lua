@@ -16,8 +16,8 @@ local levels = {
             {x = 700, y = 300, width = 128, height = 16}
         },
         enemies = {
-            {x = 400, speed = -30},
-            {x = 800, speed = -25}
+            {x = 400, speed = -30, health = 2},
+            {x = 800, speed = -25, health = 1}
         },
         coins = {
             {x = 350, y = 350},
@@ -40,9 +40,9 @@ local levels = {
             {x = 1150, y = 350, width = 96, height = 16}
         },
         enemies = {
-            {x = 300, speed = -40},
-            {x = 600, speed = -35},
-            {x = 950, speed = -45},
+            {x = 300, speed = -40, health = 3},
+            {x = 600, speed = -35, health = 2},
+            {x = 950, speed = -45, health = 4},
             {x = 1200, speed = -30}
         },
         coins = {
@@ -69,11 +69,11 @@ local levels = {
             {x = 1200, y = 250, width = 128, height = 16}
         },
         enemies = {
-            {x = 350, speed = -50},
-            {x = 500, speed = -40},
-            {x = 750, speed = -45},
-            {x = 1050, speed = -35},
-            {x = 1350, speed = -55}
+            {x = 350, speed = -50, health = 2},
+            {x = 500, speed = -40, health = 1},
+            {x = 750, speed = -45, health = 3},
+            {x = 1050, speed = -35, health = 2},
+            {x = 1350, speed = -55, health = 4}
         },
         coins = {
             {x = 300, y = 350},
@@ -98,13 +98,13 @@ local levels = {
             {x = 1200, y = 400, width = 128, height = 16}
         },
         enemies = {
-            {x = 350, speed = -40},
-            {x = 450, speed = -35},
-            {x = 550, speed = -45},
-            {x = 750, speed = -50},
-            {x = 850, speed = -30},
-            {x = 1000, speed = -55},
-            {x = 1150, speed = -40}
+            {x = 350, speed = -40, health = 2},
+            {x = 450, speed = -35, health = 1},
+            {x = 550, speed = -45, health = 3},
+            {x = 750, speed = -50, health = 2},
+            {x = 850, speed = -30, health = 1},
+            {x = 1000, speed = -55, health = 4},
+            {x = 1150, speed = -40, health = 3}
         },
         coins = {
             {x = 350, y = 400},
@@ -159,7 +159,8 @@ function level.loadLevel(levelManager, levelNumber)
         table.insert(levelManager.enemies, enemy.new(
             enemyData.x, 
             config.GROUND_Y - config.ENEMY.HEIGHT, -- Now uses larger height
-            enemyData.speed
+            enemyData.speed,
+            enemyData.health
         ))
     end
     
